@@ -1,0 +1,302 @@
+
+# 1. Import Required Libraries
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.utils.class_weight import compute_class_weight
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.callbacks import EarlyStopping
+
+
+# 2. Read Dataset
+
+df = pd.read_csv("Churn_Modelling.csv")
+
+print(df.head())
+print(df.shape)
+print(df.info())
+
+
+# 3. Data Preprocessing
+
+# Remove unnecessary columns
+
+df.drop(
+    ['RowNumber', 'CustomerId', 'Surname'],
+    axis=1,
+    inplace=True
+)
+
+# Check missing values
+
+print(df.isnull().sum())
+
+# Remove missing values
+
+df.dropna(inplace=True)
+
+# Separate features and target
+
+X = df.drop('Exited', axis=1)
+y = df['Exited']
+
+print("Features:")
+print(X.head())
+
+print("Target:")
+print(y.head())
+
+
+# 4. Divide Dataset into Training and Testing Sets
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+print("Training data:", X_train.shape)
+print("Testing data:", X_test.shape)
+
+
+# 5. Normalize and Encode Data
+
+numerical_features = [
+    'CreditScore',
+    'Age',
+    'Tenure',
+    'Balance',
+    'NumOfProducts',
+    'EstimatedSalary'
+]
+
+categorical_features = [
+    'Geography',
+    'Gender',
+    'HasCrCard',
+    'IsActiveMember'
+]
+
+preprocessor = ColumnTransformer([
+    ('num', StandardScaler(), numerical_features),
+    ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
+])
+
+X_train = preprocessor.fit_transform(X_train)
+X_test = preprocessor.transform(X_test)
+
+print("Normalized training data:", X_train.shape)
+print("Normalized testing data:", X_test.shape)
+
+
+# 6. Build Basic Neural Network Model
+
+model = Sequential([
+    Dense(16, activation='relu', input_shape=(X_train.shape[1],)),
+    Dense(8, activation='relu'),
+    Dense(1, activation='sigmoid')
+])
+
+model.compile(
+    optimizer='adam',
+    loss='binary_crossentropy',
+    metrics=['accuracy']
+)
+
+model.summary()
+
+
+# 7. Train Basic Model
+
+history = model.fit(
+    X_train,
+    y_train,
+    epochs=20,
+    batch_size=32,
+    validation_split=0.2,
+    verbose=1
+)
+
+
+# 8. Evaluate Basic Model
+
+loss, accuracy = model.evaluate(X_test, y_test)
+
+print("Basic Model Accuracy:", accuracy * 100, "%")
+
+
+# 9. Improve the Neural Network Model
+
+# Calculate class weights
+
+classes = np.unique(y_train)
+
+weights = compute_class_weight(
+    class_weight='balanced',
+    classes=classes,
+    y=y_train
+)
+
+class_weights = dict(zip(classes, weights))
+
+# Improved model
+
+model = Sequential([
+    Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    BatchNormalization(),
+    Dropout(0.3),
+
+    Dense(32, activation='relu'),
+    BatchNormalization(),
+    Dropout(0.2),
+
+    Dense(16, activation='relu'),
+
+    Dense(1, activation='sigmoid')
+])
+
+model.compile(
+    optimizer='adam',
+    loss='binary_crossentropy',
+    metrics=['accuracy']
+)
+
+model.summary()
+
+
+# 10. Early Stopping
+
+early_stop = EarlyStopping(
+    monitor='val_loss',
+    patience=5,
+    restore_best_weights=True
+)
+
+
+# 11. Train Improved Model
+
+history = model.fit(
+    X_train,
+    y_train,
+    epochs=50,
+    batch_size=32,
+    validation_split=0.2,
+    callbacks=[early_stop],
+    class_weight=class_weights,
+    verbose=1
+)
+
+
+# 12. Predict Test Data
+
+y_pred_prob = model.predict(X_test)
+
+y_pred = (y_pred_prob > 0.5).astype(int).ravel()
+
+
+# 13. Calculate Accuracy
+
+accuracy = accuracy_score(y_test, y_pred)
+
+print("\nImproved Model Accuracy:", accuracy * 100, "%")
+
+
+# 14. Confusion Matrix
+
+cm = confusion_matrix(y_test, y_pred)
+
+print("\nConfusion Matrix:")
+print(cm)
+
+plt.figure(figsize=(6, 5))
+
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt='d',
+    cmap='Blues',
+    xticklabels=['Not Churn', 'Churn'],
+    yticklabels=['Not Churn', 'Churn']
+)
+
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Bank Customer Churn Confusion Matrix")
+plt.show()
+
+
+# 15. Classification Report
+
+print("\nClassification Report:")
+print(classification_report(
+    y_test,
+    y_pred,
+    target_names=['Not Churn', 'Churn']
+))
+
+
+# 16. Plot Training and Validation Accuracy
+
+plt.figure(figsize=(8, 5))
+
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+
+plt.title("Model Accuracy")
+plt.xlabel("Epochs")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.show()
+
+
+# 17. Plot Training and Validation Loss
+
+plt.figure(figsize=(8, 5))
+
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+
+plt.title("Model Loss")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.legend()
+plt.show()
+
+
+# 18. Predict Customer Churn
+
+sample = pd.DataFrame([{
+    'CreditScore': 600,
+    'Geography': 'France',
+    'Gender': 'Male',
+    'Age': 40,
+    'Tenure': 3,
+    'Balance': 60000,
+    'NumOfProducts': 2,
+    'HasCrCard': 1,
+    'IsActiveMember': 1,
+    'EstimatedSalary': 50000
+}])
+
+sample_processed = preprocessor.transform(sample)
+
+prediction = model.predict(sample_processed)
+
+if prediction[0][0] > 0.5:
+    print("Customer will leave the bank (Churn)")
+else:
+    print("Customer will stay with the bank (Not Churn)")
+
+print("Churn Probability:", prediction[0][0] * 100, "%")

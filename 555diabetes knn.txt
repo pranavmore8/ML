@@ -1,0 +1,144 @@
+
+# 1. Import Libraries
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# 2. Load Dataset
+
+df = pd.read_csv("diabetes.csv")
+
+df
+
+df.info()
+
+
+# 3. Data Preprocessing
+
+print(df.isnull().sum())
+
+df.describe()
+
+df.isnull().sum()
+
+df.columns
+
+
+# 4. Separate Features and Target
+
+X = df.drop('Outcome', axis=1)
+y = df['Outcome']
+
+
+# 5. Import Required Libraries
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+
+from sklearn.metrics import (
+    confusion_matrix,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    classification_report
+)
+
+
+# 6. Split Dataset
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+print("Training data:", X_train.shape)
+print("Testing data:", X_test.shape)
+
+
+# 7. Feature Scaling
+
+scaler = StandardScaler()
+
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+
+# 8. Implement KNN Algorithm
+
+knn = KNeighborsClassifier(n_neighbors=5)
+
+knn.fit(X_train_scaled, y_train)
+
+
+# 9. Prediction
+
+y_pred = knn.predict(X_test_scaled)
+
+
+# 10. Confusion Matrix
+
+cm = confusion_matrix(y_test, y_pred)
+
+print("Confusion Matrix:")
+print(cm)
+
+
+# 11. Visualize Confusion Matrix
+
+plt.figure(figsize=(6, 5))
+
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt='d',
+    cmap='Blues',
+    xticklabels=['No Diabetes', 'Diabetes'],
+    yticklabels=['No Diabetes', 'Diabetes']
+)
+
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.show()
+
+
+# 12. Calculate Accuracy
+
+accuracy = accuracy_score(y_test, y_pred)
+
+print("Accuracy:", accuracy)
+print("Accuracy (%):", accuracy * 100)
+
+
+# 13. Calculate Error Rate
+
+error_rate = 1 - accuracy
+
+print("Error Rate:", error_rate)
+print("Error Rate (%):", error_rate * 100)
+
+
+# 14. Calculate Precision
+
+precision = precision_score(y_test, y_pred)
+
+print("Precision:", precision)
+
+
+# 15. Calculate Recall
+
+recall = recall_score(y_test, y_pred)
+
+print("Recall:", recall)
+
+
+# 16. Classification Report
+
+print(classification_report(y_test, y_pred))
